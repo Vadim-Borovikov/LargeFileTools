@@ -165,7 +165,7 @@ internal sealed class FileGenerator
     {
         for (int i = 0; i < count; ++i)
         {
-            byte digits = (byte) Random.Shared.Next(1, 11);
+            byte digits = (byte) Random.Shared.Next(1, LineSizing.MaxNumberLength + 1);
             string number = RandomHelper.GetRandomIntWithDigits(digits).ToString();
             int textLength = defaultLineContextLength - number.Length;
             string text = _textProvider.GetText(textLength);
