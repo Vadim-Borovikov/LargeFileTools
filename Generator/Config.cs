@@ -1,0 +1,23 @@
+﻿using System.ComponentModel.DataAnnotations;
+using JetBrains.Annotations;
+
+namespace Generator;
+
+internal sealed class Config
+{
+    [UsedImplicitly]
+    [Required]
+    public string PoolFilePath { get; set; } = null!;
+
+    [UsedImplicitly]
+    [Range(1, byte.MaxValue)]
+    public byte Workers { get; set; }
+
+    [UsedImplicitly]
+    [Range(1, ushort.MaxValue)]
+    public ushort MemoryUsageMegaBytes { get; set; }
+
+    [UsedImplicitly]
+    [Required]
+    public string LineFormat { get; set; } = null!;
+}

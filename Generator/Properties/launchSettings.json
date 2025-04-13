@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "LargeFileTools.Generator": {
+      "commandName": "Project",
+      "commandLineArgs": "test.txt 1000"
+    }
+  }
+}
