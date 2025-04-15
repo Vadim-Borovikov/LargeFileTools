@@ -11,16 +11,15 @@ internal static class Program
             return;
         }
 
-        IEnumerable<string> strings = provider.GetDistinctStrings()
-                                              .Where(IsProper)
-                                              .Select(CapitalizeFirst)
-                                              .OrderBy(s => s.Length);
-        File.WriteAllText(FilePath, string.Join(Environment.NewLine, strings));
+        IEnumerable<string> texts = provider.GetDistinctStrings()
+                                            .Where(IsProper)
+                                            .Select(CapitalizeFirst);
+        File.WriteAllText(FilePath, string.Join(Environment.NewLine, texts));
     }
 
     private static bool IsProper(string s)
     {
-        if (s.Length is 0 or > MaxLength)
+        if (s.Length == 0)
         {
             return false;
         }
@@ -62,5 +61,4 @@ internal static class Program
     private const string WordsMeaning = "thing";
     private const ushort MaxRequestSize = 1000;
     private const string FilePath = "text pool.txt";
-    private const byte MaxLength = 10;
 }

@@ -1,188 +1,217 @@
 ﻿using Generator.TextProviders;
-using System.Collections.Concurrent;
+using System.Text;
 
 namespace Generator;
 
 internal sealed class FileGenerator
 {
-    public FileGenerator(ITextProvider textProvider, string lineFormat, byte workers, ushort memoryUsageMegaBytes)
+    public FileGenerator(ITextProvider textProvider, string lineFormat, ushort memoryUsageMegabytesPerWorker)
     {
         _textProvider = textProvider;
         _lineFormat = lineFormat;
-        _workers = workers;
-        _memoryUsageMegaBytes = memoryUsageMegaBytes;
+        _sizing = new LineSizing(textProvider, lineFormat);
+        _memoryUsageBytesPerWorker = memoryUsageMegabytesPerWorker * 1024 * 1024;
     }
 
-    public string? TryGenerate(long fileSize, string outputFilePath)
-    {
-        HashSet<int> lengths = new(_textProvider.GetLengths());
-        LineSizing? sizing = LineSizing.TryCreate(lengths, _lineFormat, out string? error);
-        if (sizing is null)
-        {
-            return error ?? "";
-        }
-
-        string? lines = TryGenerateShort(fileSize, sizing.Value, out error);
-        if (!string.IsNullOrWhiteSpace(error))
-        {
-            return error;
-        }
-
-        if (!string.IsNullOrWhiteSpace(lines))
-        {
-            File.WriteAllText(outputFilePath, lines);
-            return null;
-        }
-
-        string duplicates = GenerateInitialDuplicateLines(sizing.Value);
-        File.WriteAllText(outputFilePath, duplicates);
-        int bytesWritten = duplicates.Length;
-
-        int excessSize = (int) ((fileSize - bytesWritten) % sizing.Value.DefaultAdditionSize);
-        if (excessSize > 0)
-        {
-            if (excessSize < (sizing.Value.MinLineLength + LineSizing.LineBreakLength))
-            {
-                excessSize += sizing.Value.DefaultAdditionSize;
-            }
-
-            string? excessLine = TryGenerateExcessLine(excessSize, sizing.Value, lengths);
-            if (excessLine is null)
-            {
-                return $"Unable to create line of {excessSize} bytes.";
-            }
-            File.AppendAllText(outputFilePath, excessLine);
-            bytesWritten += excessLine.Length;
-        }
-
-        long linesToWrite = (fileSize - bytesWritten) / sizing.Value.DefaultAdditionSize;
-        long fullLinesWritten = 0;
-
-        long memoryPerWorker = (long) _memoryUsageMegaBytes * 1024 * 1024 / _workers;
-        int linesPerWorker = (int) memoryPerWorker / sizing.Value.DefaultAdditionSize;
-
-        while (fullLinesWritten < linesToWrite)
-        {
-            long linesNeeded = Math.Min(linesPerWorker * _workers, linesToWrite - fullLinesWritten);
-            long workersNeeded = linesNeeded / linesPerWorker;
-            ConcurrentBag<string> results = new();
-            Parallel.For(0, workersNeeded,
-                _ => GenerateAndCollect(sizing.Value.DefaultLineContextLength, linesPerWorker, results));
-
-            int excessLines = (int) linesNeeded % linesPerWorker;
-            if (excessLines > 0)
-            {
-                // One last batch
-                GenerateAndCollect(sizing.Value.DefaultLineContextLength, excessLines, results);
-            }
-
-            File.AppendAllText(outputFilePath, string.Join(string.Empty, results));
-
-            fullLinesWritten += linesNeeded;
-        }
-
-        return null;
-    }
-
-    private string? TryGenerateShort(long fileSize, LineSizing sizing, out string? error)
+    public bool TryGenerate(long fileSize, string outputFilePath, out string? error)
     {
         error = null;
 
-        if (fileSize < (2 * sizing.MinLineLength + LineSizing.LineBreakLength))
+        bool success = TryGenerateInitialContent(fileSize, _sizing, out string result);
+        if (!success)
         {
-            error = $"Unable to create 2 lines of {sizing.MinLineLength}-{sizing.MaxLineLength} with {fileSize} bytes.";
-            return null;
+            error = result;
+            return false;
         }
 
+        using (StreamWriter writer = new(outputFilePath))
+        {
+            writer.Write(result);
+
+            writer.Flush();
+
+            long bytesWritten = result.Length;
+
+            int minAdditionSize = LineSizing.LineBreakLength + _sizing.MinLineLength;
+            int maxAdditionSize = LineSizing.LineBreakLength + _sizing.MaxLineLength;
+            long writingLimit = fileSize - minAdditionSize - maxAdditionSize;
+
+            while (bytesWritten < writingLimit)
+            {
+                string chunk = GenerateChunk(writingLimit - bytesWritten);
+                if ((chunk.Length == 0) || ((bytesWritten + chunk.Length) >= writingLimit))
+                {
+                    break;
+                }
+
+                writer.Write(chunk);
+                bytesWritten += chunk.Length;
+            }
+
+            writer.Flush();
+
+            while (bytesWritten < writingLimit)
+            {
+                string line = GenerateLine();
+                writer.Write(line);
+                bytesWritten += line.Length;
+            }
+
+            long bytesToAdd = fileSize - bytesWritten;
+            if (bytesToAdd > 0)
+            {
+                string excess = GenerateExcessContent((int) bytesToAdd);
+                writer.Write(excess);
+            }
+        }
+
+        return true;
+    }
+
+    private string GenerateChunk(long remainingBytes)
+    {
+        int workers = Environment.ProcessorCount;
+
+        StringBuilder[] buffers = new StringBuilder[workers];
+        for (int i = 0; i < workers; ++i)
+        {
+            buffers[i] = new StringBuilder(_memoryUsageBytesPerWorker);
+        }
+
+        Parallel.For(0, workers, i => FillBuffer(buffers[i]));
+
+        StringBuilder result = new(workers * _memoryUsageBytesPerWorker);
+        // ReSharper disable once LoopCanBePartlyConvertedToQuery
+        foreach (StringBuilder buffer in buffers)
+        {
+            if ((result.Length + buffer.Length) <= remainingBytes)
+            {
+                result.Append(buffer);
+            }
+        }
+        return result.ToString();
+    }
+
+    private void FillBuffer(StringBuilder buffer)
+    {
+        int bytesFilled = 0;
+
+        while (bytesFilled < _memoryUsageBytesPerWorker)
+        {
+            string line = GenerateLine();
+
+            if (line.Length > (_memoryUsageBytesPerWorker - bytesFilled))
+            {
+                break;
+            }
+
+            buffer.Append(line);
+            bytesFilled += line.Length;
+        }
+    }
+
+    private bool TryGenerateInitialContent(long fileSize, LineSizing sizing, out string result)
+    {
         if (fileSize < (3 * sizing.MinLineLength + 2 * LineSizing.LineBreakLength))
         {
             // can't fit 3 lines
-
-            if (fileSize > (2 * sizing.MaxLineLength + LineSizing.LineBreakLength))
+            bool success = TryGenerateShortContent(fileSize, out string? shortResult);
+            if (!string.IsNullOrWhiteSpace(shortResult))
             {
-                error =
-                    $"Invalid pool arrangement: {fileSize} (fileSize) > (2 * {sizing.MaxLineLength} maxLineLength + {LineSizing.LineBreakLength} lineBreakLength)";
-                return null;
+                result = shortResult;
+                return success;
             }
-
-            ushort bothLinesLength = (ushort) (fileSize - LineSizing.LineBreakLength);
-            int textLength =
-                Math.Min(sizing.MaxLineLength,
-                    bothLinesLength / 2 - LineSizing.MinNumberLength - sizing.LineDecorationLength);
-            string duplicate = _textProvider.GetText(textLength);
-
-            byte firstNumberLength = (byte) (bothLinesLength / 2 - textLength - sizing.LineDecorationLength);
-            int firstNumber = RandomHelper.GetRandomIntWithDigits(firstNumberLength);
-            string firstLine = GenerateLine(firstNumber.ToString(), duplicate, false);
-
-            byte secondNumberLength =
-                (byte) (bothLinesLength - firstLine.Length - textLength - sizing.LineDecorationLength);
-            int secondNumber = RandomHelper.GetRandomIntWithDigits(secondNumberLength);
-            string secondLine = GenerateLine(secondNumber.ToString(), duplicate, true);
-
-            return firstLine + secondLine;
         }
 
-        return null;
+        long minLines = (fileSize - sizing.MaxLineLength) / (sizing.MaxLineLength + LineSizing.LineBreakLength);
+        bool areDuplicatesGaranteed = minLines > _textProvider.TextsAmount;
+        result = areDuplicatesGaranteed ? GenerateLine(startWithNewLine: false) : GenerateInitialDuplicateLines();
+        return true;
     }
 
-    private string GenerateInitialDuplicateLines(LineSizing sizing)
+    private bool TryGenerateShortContent(long fileSize, out string? result)
     {
-        string duplicate = _textProvider.GetText(sizing.MinTextLength);
+        if (fileSize < (2 * _sizing.MinLineLength + LineSizing.LineBreakLength))
+        {
+            result =
+                $"Unable to create 2 lines of {_sizing.MinLineLength}-{_sizing.MaxLineLength} with {fileSize} bytes.";
+            return false;
+        }
 
-        int firstNumber = RandomHelper.GetRandomIntWithDigits(1);
-        string firstLine = GenerateLine(firstNumber.ToString(), duplicate, false);
+        int bothLinesLength = (int) fileSize - LineSizing.LineBreakLength;
 
-        int secondNumber = RandomHelper.GetRandomIntWithDigits(1);
-        string secondLine = GenerateLine(secondNumber.ToString(), duplicate, true);
+        int firstLineLength = bothLinesLength / 2;
+
+        byte firstNumberLength = GetNumberMinLength(firstLineLength, false);
+
+        int textLength = firstLineLength - firstNumberLength - _sizing.LineDecorationLength;
+        string duplicate = _textProvider.GetText(textLength);
+
+        string firstLine = GenerateLine(firstNumberLength, duplicate, false);
+
+        byte secondNumberLength =
+            (byte) (bothLinesLength - firstLine.Length - textLength - _sizing.LineDecorationLength);
+        string secondLine = GenerateLine(secondNumberLength, duplicate);
+
+        result = firstLine + secondLine;
+        return true;
+    }
+
+    private string GenerateInitialDuplicateLines()
+    {
+        string duplicate = _textProvider.GetText(_sizing.MinTextLength);
+
+        string firstLine = GenerateLine(LineSizing.MinNumberLength, duplicate, false);
+
+        string secondLine = GenerateLine(LineSizing.MinNumberLength, duplicate);
 
         return firstLine + secondLine;
     }
 
-    private string? TryGenerateExcessLine(int excessSize, LineSizing sizing, IReadOnlySet<int> lengths)
+    private string GenerateExcessContent(int length)
     {
-        for (byte digits = LineSizing.MinNumberLength; digits <= LineSizing.MaxNumberLength; ++digits)
+        if (length <= (_sizing.MaxLineLength + LineSizing.LineBreakLength))
         {
-            int textLength = excessSize - digits - sizing.LineDecorationLength - LineSizing.LineBreakLength;
-            if (!lengths.Contains(textLength))
-            {
-                continue;
-            }
-            string text = _textProvider.GetText(textLength);
-            int number = RandomHelper.GetRandomIntWithDigits(digits);
-            return GenerateLine(number.ToString(), text, true);
+            return GenerateLine(length);
         }
 
-        return null;
+        string first = GenerateLine(length / 2);
+        string second = GenerateLine(length - first.Length);
+        return first + second;
     }
 
-    private string GenerateLine(string number, string text, bool startWithNewLine)
+    private byte GetNumberMinLength(int lineLength, bool lineBreakIncluded = true)
     {
-        return (startWithNewLine ? Environment.NewLine : string.Empty) + string.Format(_lineFormat, number, text);
-    }
-
-    private IEnumerable<string> GenerateLines(int defaultLineContextLength, int count)
-    {
-        for (int i = 0; i < count; ++i)
+        if (lineBreakIncluded)
         {
-            byte digits = (byte) Random.Shared.Next(1, LineSizing.MaxNumberLength + 1);
-            string number = RandomHelper.GetRandomIntWithDigits(digits).ToString();
-            int textLength = defaultLineContextLength - number.Length;
-            string text = _textProvider.GetText(textLength);
-            yield return GenerateLine(number, text, true);
+            lineLength -= LineSizing.LineBreakLength;
         }
+        return (byte) Math.Max(LineSizing.MinNumberLength,
+            lineLength - _sizing.LineDecorationLength - _sizing.MaxTextLength);
     }
 
-    private void GenerateAndCollect(int defaultLineContextLength, int lines, ConcurrentBag<string> results)
+    private string GenerateLine(int length)
     {
-        foreach (string line in GenerateLines(defaultLineContextLength, lines))
-        {
-            results.Add(line);
-        }
+        byte numberLength = GetNumberMinLength(length);
+        int textLength = length - numberLength - _sizing.LineDecorationLength - LineSizing.LineBreakLength;
+        string text = _textProvider.GetText(textLength);
+        return GenerateLine(numberLength, text);
+    }
+
+    private string GenerateLine(byte? numberLength = null, string? text = null, bool startWithNewLine = true)
+    {
+        string prefix = startWithNewLine ? Environment.NewLine : string.Empty;
+
+        numberLength ??= (byte) Random.Shared.Next(LineSizing.MinNumberLength, LineSizing.MaxNumberLength + 1);
+        int number = Random.Shared.GetIntWithDigits(numberLength.Value);
+
+        text ??= _textProvider.GetText();
+
+        return prefix + string.Format(_lineFormat, number, text);
     }
 
     private readonly ITextProvider _textProvider;
-    private readonly byte _workers;
-    private readonly uint _memoryUsageMegaBytes;
+    private readonly int _memoryUsageBytesPerWorker;
     private readonly string _lineFormat;
+    private readonly LineSizing _sizing;
 }

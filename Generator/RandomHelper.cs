@@ -2,23 +2,23 @@
 
 internal static class RandomHelper
 {
-    public static T GetRandomElement<T>(this IReadOnlyList<T> list) => list[Random.Shared.Next(0, list.Count)];
+    public static T PickFrom<T>(this Random random, IReadOnlyList<T> list) => list[random.Next(0, list.Count)];
 
-    public static int GetRandomIntWithDigits(byte digits)
+    public static int GetIntWithDigits(this Random random, byte digits)
     {
         return digits switch
         {
-            1 => Random.Shared.Next(1, 10),
-            2 => Random.Shared.Next(10, 100),
-            3 => Random.Shared.Next(100, 1000),
-            4 => Random.Shared.Next(1000, 10_000),
-            5 => Random.Shared.Next(10_000, 100_000),
-            6 => Random.Shared.Next(100_000, 1_000_000),
-            7 => Random.Shared.Next(1_000_000, 10_000_000),
-            8 => Random.Shared.Next(10_000_000, 100_000_000),
-            9 => Random.Shared.Next(100_000_000, 1_000_000_000),
-            10 => Random.Shared.Next(1_000_000_000),
-            _ => throw new ArgumentOutOfRangeException(nameof(digits), "1–10 digits only")
+            1  => random.Next(1, 10),
+            2  => random.Next(10, 100),
+            3  => random.Next(100, 1000),
+            4  => random.Next(1000, 10_000),
+            5  => random.Next(10_000, 100_000),
+            6  => random.Next(100_000, 1_000_000),
+            7  => random.Next(1_000_000, 10_000_000),
+            8  => random.Next(10_000_000, 100_000_000),
+            9  => random.Next(100_000_000, 1_000_000_000),
+            10 => random.Next(1_000_000_000, int.MaxValue),
+            _  => throw new ArgumentOutOfRangeException(nameof(digits), "1–10 digits only")
         };
     }
 }

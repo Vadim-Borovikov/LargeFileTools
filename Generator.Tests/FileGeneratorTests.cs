@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using Generator.TextProviders;
+﻿using Generator.TextProviders;
 
 namespace Generator.Tests;
 
@@ -9,12 +8,15 @@ public class FileGeneratorTests
     [TestInitialize]
     public void Initialize()
     {
-        PoolTextProvider provider = new(PoolFilePath);
-        _generator ??= new FileGenerator(provider, LineFormat, Workers, MemoryUsageMegabytes);
+        PoolTextProvider? provider = PoolTextProvider.TryCreateFrom(PoolFilePath, out string? error);
+        Assert.IsNotNull(provider);
+        Assert.IsNull(error);
+
+        _generator ??= new FileGenerator(provider, LineFormat, MemoryUsageMegabytesPerWorker);
     }
 
     [TestMethod]
-    public void TooLittleSizeTests()
+    public void Test01_TooLittleSize()
     {
         Assert.IsNotNull(_generator);
         for (byte b = 0; b < MinFileSize; ++b)
@@ -24,7 +26,7 @@ public class FileGeneratorTests
     }
 
     [TestMethod]
-    public void NotTooLittleSizeTests()
+    public void Test02_NotTooLittleSize()
     {
         Assert.IsNotNull(_generator);
         for (int i = MinFileSize + 1; i < (10 * MinFileSize); ++i)
@@ -34,58 +36,111 @@ public class FileGeneratorTests
     }
 
     [TestMethod]
-    public void TensSizeTest()
+    public void Test03_10()
     {
         Assert.IsNotNull(_generator);
-        int maxSize = (int) Math.Pow(10, 9);
-        for (int size = 10; size <= maxSize; size *= 10)
-        {
-            CreateAndCheckFile(_generator, size);
-        }
+        CreateAndCheckFile(_generator, 10);
+    }
+
+    [TestMethod]
+    public void Test04_100()
+    {
+        Assert.IsNotNull(_generator);
+        CreateAndCheckFile(_generator, 100);
+    }
+
+    [TestMethod]
+    public void Test05_1000()
+    {
+        Assert.IsNotNull(_generator);
+        CreateAndCheckFile(_generator, 1000);
+    }
+
+    [TestMethod]
+    public void Test06_10_000()
+    {
+        Assert.IsNotNull(_generator);
+        CreateAndCheckFile(_generator, 10_000);
+    }
+
+    [TestMethod]
+    public void Test07_100_000()
+    {
+        Assert.IsNotNull(_generator);
+        CreateAndCheckFile(_generator, 100_000);
+    }
+
+    [TestMethod]
+    public void Test08_1_000_000()
+    {
+        Assert.IsNotNull(_generator);
+        CreateAndCheckFile(_generator, 1_000_000);
+    }
+
+    [TestMethod]
+    public void Test09_10_000_000()
+    {
+        Assert.IsNotNull(_generator);
+        CreateAndCheckFile(_generator, 10_000_000);
+    }
+
+    [TestMethod]
+    public void Test10_100_000_000()
+    {
+        Assert.IsNotNull(_generator);
+        CreateAndCheckFile(_generator, 100_000_000);
+    }
+
+    [TestMethod]
+    public void Test11_1_000_000_000()
+    {
+        Assert.IsNotNull(_generator);
+        CreateAndCheckFile(_generator, 1_000_000_000);
     }
 
     private static void CheckSizeIsTooLittle(FileGenerator generator, byte size)
     {
-        string? result = generator.TryGenerate(size, OutputFilePath);
-        Assert.AreEqual(result, $"Unable to create 2 lines of {MinLineLength}-{MaxLineLength} with {size} bytes.");
+        bool success = generator.TryGenerate(size, OutputFilePath, out string? error);
+        Assert.IsFalse(success);
+        Assert.AreEqual(error, $"Unable to create 2 lines of {MinLineLength}-{MaxLineLength} with {size} bytes.");
     }
 
     private static void CreateAndCheckFile(FileGenerator generator, int size)
     {
         File.Delete(OutputFilePath);
-        string? result = generator.TryGenerate(size, OutputFilePath);
-        Assert.IsNull(result);
+        bool success = generator.TryGenerate(size, OutputFilePath, out string? error);
+        Assert.IsTrue(success);
+        Assert.IsNull(error);
         FileInfo info = new(OutputFilePath);
-        if (size != info.Length)
-        {
-            Debugger.Break();
-        }
         Assert.AreEqual(size, info.Length);
 
         string decoration = string.Format(LineFormat, "", "");
 
+        HashSet<string> texts = new();
+        bool duplicateFound = false;
         using (StreamReader reader = new(OutputFilePath))
         {
             string? line;
-            string? firstText = null;
-            string? secondText = null;
             while ((line = reader.ReadLine()) is not null)
             {
-                string text = ChechLineAndGetText(line, decoration);
-
-                if (firstText is null)
+                string text = CheckLineAndGetText(line, decoration);
+                if (!duplicateFound)
                 {
-                    firstText = text;
-                    continue;
+                    if (texts.Contains(text))
+                    {
+                        duplicateFound = true;
+                    }
+                    else
+                    {
+                        texts.Add(text);
+                    }
                 }
-                secondText ??= text;
             }
-            Assert.IsNotNull(firstText);
-            Assert.AreEqual(firstText, secondText);
+            Assert.IsTrue(duplicateFound);
         }
     }
 
-    private static string ChechLineAndGetText(string line, string decoration)
+    private static string CheckLineAndGetText(string line, string decoration)
     {
         int decorationIndex = line.IndexOf(decoration, StringComparison.Ordinal);
         Assert.IsTrue(decorationIndex > 0);
@@ -104,11 +159,10 @@ public class FileGeneratorTests
     private static readonly string PoolFilePath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..",
         "Generator", "bin", "Debug", "net9.0", "text pool.txt");
 
-    private const byte Workers = 8;
-    private const ushort MemoryUsageMegabytes = 2048;
+    private const ushort MemoryUsageMegabytesPerWorker = 1;
     private const string LineFormat = "{0}. {1}";
     private const string OutputFilePath = "text.txt";
     private const byte MinLineLength = 4;
-    private const byte MaxLineLength = 22;
+    private const byte MaxLineLength = 47;
     private const byte MinFileSize = 10;
 }

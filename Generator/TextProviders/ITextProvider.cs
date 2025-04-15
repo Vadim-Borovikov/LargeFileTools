@@ -2,6 +2,9 @@
 
 internal interface ITextProvider
 {
-    public IEnumerable<int> GetLengths();
+    public const byte MinLength = 1;
+    public int MaxLength { get; }
+    public int TextsAmount { get; }
+    string GetText();
     string GetText(int length);
 }

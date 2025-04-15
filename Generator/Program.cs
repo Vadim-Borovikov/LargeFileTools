@@ -24,12 +24,17 @@ internal static class Program
             return;
         }
 
-        PoolTextProvider provider = new(config.PoolFilePath);
+        PoolTextProvider? provider = PoolTextProvider.TryCreateFrom(config.PoolFilePath, out string? error);
+        if (provider is null)
+        {
+            Console.WriteLine($"Error: {error}");
+            return;
+        }
 
-        FileGenerator generator = new(provider, config.LineFormat, config.Workers, config.MemoryUsageMegaBytes);
-        string? errorMessage = generator.TryGenerate(fileSize, outputFilePath);
+        FileGenerator generator = new(provider, config.LineFormat, config.MemoryUsageMegaBytesPerWorker);
+        bool success = generator.TryGenerate(fileSize, outputFilePath, out error);
 
-        Console.WriteLine(string.IsNullOrWhiteSpace(errorMessage) ? "Done." : $"Error: {errorMessage}");
+        Console.WriteLine(success ? "Done." : $"Error: {error}");
     }
 
     private static Config GetConfig()

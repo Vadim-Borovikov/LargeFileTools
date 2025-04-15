@@ -10,12 +10,8 @@ internal sealed class Config
     public string PoolFilePath { get; set; } = null!;
 
     [UsedImplicitly]
-    [Range(1, byte.MaxValue)]
-    public byte Workers { get; set; }
-
-    [UsedImplicitly]
     [Range(1, ushort.MaxValue)]
-    public ushort MemoryUsageMegaBytes { get; set; }
+    public ushort MemoryUsageMegaBytesPerWorker { get; set; }
 
     [UsedImplicitly]
     [Required]

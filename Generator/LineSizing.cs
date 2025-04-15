@@ -1,4 +1,6 @@
-﻿namespace Generator;
+﻿using Generator.TextProviders;
+
+namespace Generator;
 
 internal readonly struct LineSizing
 {
@@ -8,42 +10,20 @@ internal readonly struct LineSizing
 
     public static readonly int LineBreakLength = Environment.NewLine.Length;
 
-    public readonly int MinTextLength;
+    public readonly byte MinTextLength;
+    public readonly int MaxTextLength;
     public readonly int LineDecorationLength;
     public readonly int MinLineLength;
     public readonly int MaxLineLength;
-    public readonly int DefaultLineContextLength;
-    public readonly int DefaultAdditionSize;
 
-    private LineSizing(int minTextLength, int maxTextLength, int lineDecorationLength)
+    public LineSizing(ITextProvider textProvider, string lineFormat)
     {
-        MinTextLength = minTextLength;
-        LineDecorationLength = lineDecorationLength;
+        MinTextLength = ITextProvider.MinLength;
+        MaxTextLength = textProvider.MaxLength;
+
+        LineDecorationLength = string.Format(lineFormat, "", "").Length;
 
         MinLineLength = MinNumberLength + MinTextLength + LineDecorationLength;
-        MaxLineLength = MaxNumberLength + maxTextLength + LineDecorationLength;
-
-        DefaultLineContextLength = MinNumberLength + maxTextLength;
-        DefaultAdditionSize = DefaultLineContextLength + LineDecorationLength + LineBreakLength;
-    }
-
-    public static LineSizing? TryCreate(HashSet<int> lengths, string lineFormat, out string? error)
-    {
-        int minTextLength = lengths.Min();
-        int maxTextLength = MaxNumberLength + minTextLength - MinNumberLength;
-
-        for (int l = minTextLength + 1; l <= maxTextLength; ++l)
-        {
-            if (!lengths.Contains(l))
-            {
-                error = $"Dictionary lacks words with length of {l}";
-                return null;
-            }
-        }
-
-        int lineDecorationLength = string.Format(lineFormat, "", "").Length;
-
-        error = null;
-        return new LineSizing(minTextLength, maxTextLength, lineDecorationLength);
+        MaxLineLength = MaxNumberLength + MaxTextLength + LineDecorationLength;
     }
 }
