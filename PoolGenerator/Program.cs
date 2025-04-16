@@ -7,14 +7,15 @@ internal static class Program
         DatamuseProvider? provider = DatamuseProvider.TryCreate(WordsMeaning, MaxRequestSize);
         if (provider is null)
         {
-            Console.WriteLine("Unable to create provider.");
+            Console.Error.WriteLine("Unable to create provider.");
             return;
         }
 
         IEnumerable<string> texts = provider.GetDistinctStrings()
                                             .Where(IsProper)
-                                            .Select(CapitalizeFirst);
+                                            .Select(StringExtensions.Capitalize);
         File.WriteAllText(FilePath, string.Join(Environment.NewLine, texts));
+        Console.WriteLine("Done.");
     }
 
     private static bool IsProper(string s)
@@ -41,21 +42,6 @@ internal static class Program
         }
 
         return true;
-    }
-
-    private static string CapitalizeFirst(string s)
-    {
-        if (string.IsNullOrEmpty(s))
-        {
-            return s;
-        }
-
-        if (char.IsUpper(s[0]))
-        {
-            return s;
-        }
-
-        return char.ToUpperInvariant(s[0]) + s.Substring(1);
     }
 
     private const string WordsMeaning = "thing";
