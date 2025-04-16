@@ -12,7 +12,7 @@ internal static class Program
 
         if (args.Length != 2)
         {
-            Console.WriteLine("Usage: Generator.exe <output file path> <file size in bytes>");
+            Console.Error.WriteLine("Usage: Generator.exe <output file path> <file size in bytes>");
             return;
         }
 
@@ -20,21 +20,28 @@ internal static class Program
 
         if (!long.TryParse(args[1], out long fileSize) || (fileSize <= 0))
         {
-            Console.WriteLine("Error: Invalid file size.");
+            Console.Error.WriteLine("Invalid file size.");
             return;
         }
 
         PoolTextProvider? provider = PoolTextProvider.TryCreateFrom(config.PoolFilePath, out string? error);
         if (provider is null)
         {
-            Console.WriteLine($"Error: {error}");
+            Console.Error.WriteLine(error);
             return;
         }
 
         FileGenerator generator = new(provider, config.LineFormat, config.MemoryUsageMegaBytesPerWorker);
         bool success = generator.TryGenerate(fileSize, outputFilePath, out error);
 
-        Console.WriteLine(success ? "Done." : $"Error: {error}");
+        if (success)
+        {
+            Console.WriteLine("Done.");
+        }
+        else
+        {
+            Console.Error.WriteLine(error);
+        }
     }
 
     private static Config GetConfig()
