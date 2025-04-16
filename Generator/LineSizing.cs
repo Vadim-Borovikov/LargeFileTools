@@ -21,7 +21,7 @@ internal readonly struct LineSizing
         MinTextLength = ITextProvider.MinLength;
         MaxTextLength = textProvider.MaxLength;
 
-        LineDecorationLength = string.Format(lineFormat, "", "").Length;
+        LineDecorationLength = string.Format(lineFormat, string.Empty, string.Empty).Length;
 
         MinLineLength = MinNumberLength + MinTextLength + LineDecorationLength;
         MaxLineLength = MaxNumberLength + MaxTextLength + LineDecorationLength;
