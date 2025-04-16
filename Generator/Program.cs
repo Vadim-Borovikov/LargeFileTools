@@ -40,7 +40,6 @@ internal static class Program
         catch (Exception ex)
         {
             Console.Error.WriteLine(ex);
-            throw;
         }
     }
 
