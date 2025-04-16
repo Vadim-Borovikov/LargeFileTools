@@ -12,7 +12,7 @@ internal static class Program
 
         if (args.Length != 2)
         {
-            Console.WriteLine("Usage: LargeFileTools.Generator.exe <output file path> <file size in bytes>");
+            Console.WriteLine("Usage: Generator.exe <output file path> <file size in bytes>");
             return;
         }
 
