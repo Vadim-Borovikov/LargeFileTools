@@ -100,17 +100,22 @@ public class FileGeneratorTests
 
     private static void CheckSizeIsTooLittle(FileGenerator generator, byte size)
     {
-        bool success = generator.TryGenerate(size, OutputFilePath, out string? error);
-        Assert.IsFalse(success);
-        Assert.AreEqual(error, $"Unable to create 2 lines of {MinLineLength}-{MaxLineLength} with {size} bytes.");
+        try
+        {
+            generator.Generate(size, OutputFilePath);
+            Assert.Fail();
+        }
+        catch (Exception ex)
+        {
+            Assert.AreEqual($"Unable to create 2 lines of {MinLineLength}-{MaxLineLength} with {size} bytes.",
+                ex.Message);
+        }
     }
 
     private static void CreateAndCheckFile(FileGenerator generator, int size)
     {
         File.Delete(OutputFilePath);
-        bool success = generator.TryGenerate(size, OutputFilePath, out string? error);
-        Assert.IsTrue(success);
-        Assert.IsNull(error);
+        generator.Generate(size, OutputFilePath);
         FileInfo info = new(OutputFilePath);
         Assert.AreEqual(size, info.Length);
 

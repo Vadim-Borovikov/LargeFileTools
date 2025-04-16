@@ -32,15 +32,15 @@ internal static class Program
         }
 
         FileGenerator generator = new(provider, config.LineFormat, config.MemoryUsageMegaBytesPerWorker);
-        bool success = generator.TryGenerate(fileSize, outputFilePath, out error);
-
-        if (success)
+        try
         {
+            generator.Generate(fileSize, outputFilePath);
             Console.WriteLine("Done.");
         }
-        else
+        catch (Exception ex)
         {
-            Console.Error.WriteLine(error);
+            Console.Error.WriteLine(ex);
+            throw;
         }
     }
 

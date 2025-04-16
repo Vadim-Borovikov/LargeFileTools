@@ -13,22 +13,15 @@ internal sealed class FileGenerator
         _memoryUsageBytesPerWorker = memoryUsageMegabytesPerWorker * 1024 * 1024;
     }
 
-    public bool TryGenerate(long fileSize, string outputFilePath, out string? error)
+    public void Generate(long fileSize, string outputFilePath)
     {
-        error = null;
-
-        bool success = TryGenerateInitialContent(fileSize, _sizing, out string result);
-        if (!success)
-        {
-            error = result;
-            return false;
-        }
+        string initial = GenerateInitialContent(fileSize, _sizing);
 
         using (StreamWriter writer = new(outputFilePath))
         {
-            writer.Write(result);
+            writer.Write(initial);
 
-            long bytesWritten = result.Length;
+            long bytesWritten = initial.Length;
 
             int minAdditionSize = LineSizing.LineBreakLength + _sizing.MinLineLength;
             int maxAdditionSize = LineSizing.LineBreakLength + _sizing.MaxLineLength;
@@ -60,8 +53,6 @@ internal sealed class FileGenerator
                 writer.Write(excess);
             }
         }
-
-        return true;
     }
 
     private string GenerateChunk(long remainingBytes)
@@ -106,32 +97,24 @@ internal sealed class FileGenerator
         }
     }
 
-    private bool TryGenerateInitialContent(long fileSize, LineSizing sizing, out string result)
+    private string GenerateInitialContent(long fileSize, LineSizing sizing)
     {
         if (fileSize < (3 * sizing.MinLineLength + 2 * LineSizing.LineBreakLength))
         {
             // can't fit 3 lines
-            bool success = TryGenerateShortContent(fileSize, out string? shortResult);
-            if (!string.IsNullOrWhiteSpace(shortResult))
-            {
-                result = shortResult;
-                return success;
-            }
+            return GenerateShortContent(fileSize);
         }
 
         long minLines = (fileSize - sizing.MaxLineLength) / (sizing.MaxLineLength + LineSizing.LineBreakLength);
         bool areDuplicatesGaranteed = minLines > _textProvider.TextsAmount;
-        result = areDuplicatesGaranteed ? GenerateLine(startWithNewLine: false) : GenerateInitialDuplicateLines();
-        return true;
+        return areDuplicatesGaranteed ? GenerateLine(startWithNewLine: false) : GenerateInitialDuplicateLines();
     }
 
-    private bool TryGenerateShortContent(long fileSize, out string? result)
+    private string GenerateShortContent(long fileSize)
     {
         if (fileSize < (2 * _sizing.MinLineLength + LineSizing.LineBreakLength))
         {
-            result =
-                $"Unable to create 2 lines of {_sizing.MinLineLength}-{_sizing.MaxLineLength} with {fileSize} bytes.";
-            return false;
+            throw new InvalidOperationException($"Unable to create 2 lines of {_sizing.MinLineLength}-{_sizing.MaxLineLength} with {fileSize} bytes.");
         }
 
         int bothLinesLength = (int) fileSize - LineSizing.LineBreakLength;
@@ -149,8 +132,7 @@ internal sealed class FileGenerator
             (byte) (bothLinesLength - firstLine.Length - textLength - _sizing.LineDecorationLength);
         string secondLine = GenerateLine(secondNumberLength, duplicate);
 
-        result = firstLine + secondLine;
-        return true;
+        return firstLine + secondLine;
     }
 
     private string GenerateInitialDuplicateLines()
