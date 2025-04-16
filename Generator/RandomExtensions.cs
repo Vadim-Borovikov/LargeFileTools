@@ -1,6 +1,6 @@
 ﻿namespace Generator;
 
-internal static class RandomHelper
+internal static class RandomExtensions
 {
     public static T PickFrom<T>(this Random random, IReadOnlyList<T> list) => list[random.Next(0, list.Count)];
 
