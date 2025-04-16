@@ -28,8 +28,6 @@ internal sealed class FileGenerator
         {
             writer.Write(result);
 
-            writer.Flush();
-
             long bytesWritten = result.Length;
 
             int minAdditionSize = LineSizing.LineBreakLength + _sizing.MinLineLength;
@@ -47,8 +45,6 @@ internal sealed class FileGenerator
                 writer.Write(chunk);
                 bytesWritten += chunk.Length;
             }
-
-            writer.Flush();
 
             while (bytesWritten < writingLimit)
             {
