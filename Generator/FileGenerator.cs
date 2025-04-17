@@ -102,7 +102,7 @@ internal sealed class FileGenerator
         if (fileSize < (3 * sizing.MinLineLength + 2 * LineSizing.LineBreakLength))
         {
             // can't fit 3 lines
-            return GenerateShortContent(fileSize);
+            return GenerateShortContent((int) fileSize);
         }
 
         long minLines = (fileSize - sizing.MaxLineLength) / (sizing.MaxLineLength + LineSizing.LineBreakLength);
@@ -110,14 +110,14 @@ internal sealed class FileGenerator
         return areDuplicatesGaranteed ? GenerateLine(startWithNewLine: false) : GenerateInitialDuplicateLines();
     }
 
-    private string GenerateShortContent(long fileSize)
+    private string GenerateShortContent(int length)
     {
-        if (fileSize < (2 * _sizing.MinLineLength + LineSizing.LineBreakLength))
+        if (length < (2 * _sizing.MinLineLength + LineSizing.LineBreakLength))
         {
-            throw new InvalidOperationException($"Unable to create 2 lines of {_sizing.MinLineLength}-{_sizing.MaxLineLength} with {fileSize} bytes.");
+            throw new InvalidOperationException($"Unable to create 2 lines of {_sizing.MinLineLength}-{_sizing.MaxLineLength} with {length} bytes.");
         }
 
-        int bothLinesLength = (int) fileSize - LineSizing.LineBreakLength;
+        int bothLinesLength = length - LineSizing.LineBreakLength;
 
         int firstLineLength = bothLinesLength / 2;
 
