@@ -85,7 +85,7 @@ internal sealed class LineSorter
                                          .Order()
                                          .Select(l => l.ToString());
         string tempFile = Path.Combine(_tempFolderPath, Path.GetRandomFileName());
-        await File.WriteAllTextAsync(tempFile, string.Join(Environment.NewLine, toWrite));
+        await File.WriteAllLinesAsync(tempFile, toWrite);
         return tempFile;
     }
 
@@ -135,21 +135,12 @@ internal sealed class LineSorter
                 while (minHeap.Count > 0)
                 {
                     FileLine smallest = minHeap.Dequeue();
+                    await writer.WriteLineAsync(smallest.Line.ToString());
 
                     FileLine? next = await ReadAndParseFromAsync(smallest.Reader);
                     if (next is not null)
                     {
                         minHeap.Enqueue(next, next.Line);
-                    }
-
-                    string toWrite = smallest.Line.ToString();
-                    if (minHeap.Count == 0)
-                    {
-                        await writer.WriteAsync(toWrite);
-                    }
-                    else
-                    {
-                        await writer.WriteLineAsync(toWrite);
                     }
                 }
             }

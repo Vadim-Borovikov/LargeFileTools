@@ -8,8 +8,6 @@ internal readonly struct LineSizing
 
     public static readonly int MaxNumberLength = int.MaxValue.ToString().Length;
 
-    public static readonly int LineBreakLength = Environment.NewLine.Length;
-
     public readonly byte MinTextLength;
     public readonly int MaxTextLength;
     public readonly int LineDecorationLength;
@@ -21,7 +19,8 @@ internal readonly struct LineSizing
         MinTextLength = ITextProvider.MinLength;
         MaxTextLength = textProvider.MaxLength;
 
-        LineDecorationLength = string.Format(lineFormat, string.Empty, string.Empty).Length;
+        LineDecorationLength =
+            string.Format(lineFormat, string.Empty, string.Empty).Length + Environment.NewLine.Length;
 
         MinLineLength = MinNumberLength + MinTextLength + LineDecorationLength;
         MaxLineLength = MaxNumberLength + MaxTextLength + LineDecorationLength;

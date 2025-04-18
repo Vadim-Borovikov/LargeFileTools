@@ -28,31 +28,28 @@ public class FileSorterTests
     }
 
     [TestMethod]
-    public Task Test02_10() => CheckAsync(10);
+    public Task Test02_100() => CheckAsync(100);
 
     [TestMethod]
-    public Task Test03_100() => CheckAsync(100);
+    public Task Test03_1000() => CheckAsync(1000);
 
     [TestMethod]
-    public Task Test04_1000() => CheckAsync(1000);
+    public Task Test04_10_000() => CheckAsync(10_000);
 
     [TestMethod]
-    public Task Test05_10_000() => CheckAsync(10_000);
+    public Task Test05_100_000() => CheckAsync(100_000);
 
     [TestMethod]
-    public Task Test06_100_000() => CheckAsync(100_000);
+    public Task Test06_1_000_000() => CheckAsync(1_100_000);
 
     [TestMethod]
-    public Task Test07_1_000_000() => CheckAsync(1_100_000);
+    public Task Test07_10_000_000() => CheckAsync(10_000_000);
 
     [TestMethod]
-    public Task Test08_10_000_000() => CheckAsync(10_000_000);
+    public Task Test08_100_000_000() => CheckAsync(100_000_000);
 
     [TestMethod]
-    public Task Test09_100_000_000() => CheckAsync(100_000_000);
-
-    [TestMethod]
-    public Task Test10_1_000_000_000() => CheckAsync(1_000_000_000);
+    public Task Test09_1_000_000_000() => CheckAsync(1_000_000_000);
 
     private async Task CheckAsync(int fileSize)
     {
