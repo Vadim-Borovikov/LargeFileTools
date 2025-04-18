@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Sorter": {
+      "commandName": "Project",
+      "commandLineArgs": "text.txt sorted.txt"
+    }
+  }
+}
