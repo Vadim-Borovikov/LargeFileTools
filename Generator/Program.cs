@@ -16,7 +16,7 @@ internal static class Program
             return;
         }
 
-        string outputFilePath = args[0];
+        string outputFilePath = Path.GetFullPath(args[0]);
 
         if (!long.TryParse(args[1], out long fileSize) || (fileSize <= 0))
         {
@@ -34,8 +34,10 @@ internal static class Program
         FileGenerator generator = new(provider, config.LineFormat, config.MemoryUsageMegaBytesPerWorker);
         try
         {
+            Console.Write($"Generating file of {fileSize:N0} bytes from pool at {Path.GetFullPath(config.PoolFilePath)}...");
             generator.Generate(fileSize, outputFilePath);
-            Console.WriteLine("Done.");
+            Console.WriteLine(" done.");
+            Console.WriteLine($"You may see result in {outputFilePath}.");
         }
         catch (Exception ex)
         {
