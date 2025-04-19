@@ -168,22 +168,22 @@ internal sealed class LineSorter
 
     private void Delete(IEnumerable<string> files, bool final)
     {
-        if (final)
+        try
         {
-            Directory.Delete(_tempFolderPath, true);
-            return;
-        }
+            if (final)
+            {
+                Directory.Delete(_tempFolderPath, true);
+                return;
+            }
 
-        foreach (string file in files)
-        {
-            try
+            foreach (string file in files)
             {
                 File.Delete(file);
             }
-            catch
-            {
-                // ignore
-            }
+        }
+        catch
+        {
+            // ignore
         }
     }
 
