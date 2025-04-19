@@ -23,7 +23,9 @@ internal sealed class FileGenerator
 
             long bytesWritten = initial.Length;
 
-            long writingLimit = fileSize - _sizing.MinLineLength - _sizing.MaxLineLength;
+            int minAdditionSize = LineSizing.LineBreakLength + _sizing.MinLineLength;
+            int maxAdditionSize = LineSizing.LineBreakLength + _sizing.MaxLineLength;
+            long writingLimit = fileSize - minAdditionSize - maxAdditionSize;
 
             while (bytesWritten < writingLimit)
             {
@@ -97,37 +99,37 @@ internal sealed class FileGenerator
 
     private string GenerateInitialContent(long fileSize, LineSizing sizing)
     {
-        if (fileSize < (3 * sizing.MinLineLength))
+        if (fileSize < (3 * sizing.MinLineLength + 2 * LineSizing.LineBreakLength))
         {
             // can't fit 3 lines
             return GenerateShortContent((int) fileSize);
         }
 
-        long minLines = (fileSize - sizing.MaxLineLength) / sizing.MaxLineLength;
+        long minLines = (fileSize - sizing.MaxLineLength) / (sizing.MaxLineLength + LineSizing.LineBreakLength);
         bool areDuplicatesGaranteed = minLines > _textProvider.TextsAmount;
-        return areDuplicatesGaranteed ? GenerateLine() : GenerateInitialDuplicateLines();
+        return areDuplicatesGaranteed ? GenerateLine(startWithNewLine: false) : GenerateInitialDuplicateLines();
     }
 
     private string GenerateShortContent(int length)
     {
-        if (length < (2 * _sizing.MinLineLength))
+        if (length < (2 * _sizing.MinLineLength + LineSizing.LineBreakLength))
         {
             throw new InvalidOperationException($"Unable to create 2 lines of {_sizing.MinLineLength}-{_sizing.MaxLineLength} with {length} bytes.");
         }
 
-        int firstLineLength = length / 2;
+        int bothLinesLength = length - LineSizing.LineBreakLength;
 
-        byte firstNumberLength = GetNumberMinLength(firstLineLength);
+        int firstLineLength = bothLinesLength / 2;
+
+        byte firstNumberLength = GetNumberMinLength(firstLineLength, false);
 
         int textLength = firstLineLength - firstNumberLength - _sizing.LineDecorationLength;
         string duplicate = _textProvider.GetText(textLength);
 
-        string firstLine = GenerateLine(firstNumberLength, duplicate);
+        string firstLine = GenerateLine(firstNumberLength, duplicate, false);
 
-        int secondLineLength = length - firstLine.Length;
-
-        byte secondNumberLength = (byte) (secondLineLength - textLength - _sizing.LineDecorationLength);
-
+        byte secondNumberLength =
+            (byte) (bothLinesLength - firstLine.Length - textLength - _sizing.LineDecorationLength);
         string secondLine = GenerateLine(secondNumberLength, duplicate);
 
         return firstLine + secondLine;
@@ -137,7 +139,8 @@ internal sealed class FileGenerator
     {
         string duplicate = _textProvider.GetText(_sizing.MinTextLength);
 
-        string firstLine = GenerateLine(LineSizing.MinNumberLength, duplicate);
+        string firstLine = GenerateLine(LineSizing.MinNumberLength, duplicate, false);
+
         string secondLine = GenerateLine(LineSizing.MinNumberLength, duplicate);
 
         return firstLine + secondLine;
@@ -145,18 +148,22 @@ internal sealed class FileGenerator
 
     private string GenerateExcessContent(int length)
     {
-        if (length <= _sizing.MaxLineLength)
+        if (length <= (_sizing.MaxLineLength + LineSizing.LineBreakLength))
         {
             return GenerateLine(length);
         }
 
-        string firstLine = GenerateLine(length / 2);
-        string secondLine = GenerateLine(length - firstLine.Length);
-        return firstLine + secondLine;
+        string first = GenerateLine(length / 2);
+        string second = GenerateLine(length - first.Length);
+        return first + second;
     }
 
-    private byte GetNumberMinLength(int lineLength)
+    private byte GetNumberMinLength(int lineLength, bool lineBreakIncluded = true)
     {
+        if (lineBreakIncluded)
+        {
+            lineLength -= LineSizing.LineBreakLength;
+        }
         return (byte) Math.Max(LineSizing.MinNumberLength,
             lineLength - _sizing.LineDecorationLength - _sizing.MaxTextLength);
     }
@@ -164,19 +171,21 @@ internal sealed class FileGenerator
     private string GenerateLine(int length)
     {
         byte numberLength = GetNumberMinLength(length);
-        int textLength = length - numberLength - _sizing.LineDecorationLength;
+        int textLength = length - numberLength - _sizing.LineDecorationLength - LineSizing.LineBreakLength;
         string text = _textProvider.GetText(textLength);
         return GenerateLine(numberLength, text);
     }
 
-    private string GenerateLine(byte? numberLength = null, string? text = null)
+    private string GenerateLine(byte? numberLength = null, string? text = null, bool startWithNewLine = true)
     {
+        string prefix = startWithNewLine ? Environment.NewLine : string.Empty;
+
         numberLength ??= (byte) Random.Shared.Next(LineSizing.MinNumberLength, LineSizing.MaxNumberLength + 1);
         int number = Random.Shared.GetIntWithDigits(numberLength.Value);
 
         text ??= _textProvider.GetText();
 
-        return string.Format(_lineFormat, number, text) + Environment.NewLine;
+        return prefix + string.Format(_lineFormat, number, text);
     }
 
     private readonly ITextProvider _textProvider;

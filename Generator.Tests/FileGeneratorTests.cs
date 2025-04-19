@@ -28,28 +28,31 @@ public class FileGeneratorTests
     }
 
     [TestMethod]
-    public void Test03_100() => CreateAndCheckFile(100);
+    public void Test03_10() => CreateAndCheckFile(10);
 
     [TestMethod]
-    public void Test04_1000() => CreateAndCheckFile(1000);
+    public void Test04_100() => CreateAndCheckFile(100);
 
     [TestMethod]
-    public void Test05_10_000() => CreateAndCheckFile(10_000);
+    public void Test05_1000() => CreateAndCheckFile(1000);
 
     [TestMethod]
-    public void Test06_100_000() => CreateAndCheckFile(100_000);
+    public void Test06_10_000() => CreateAndCheckFile(10_000);
 
     [TestMethod]
-    public void Test07_1_000_000() => CreateAndCheckFile(1_000_000);
+    public void Test07_100_000() => CreateAndCheckFile(100_000);
 
     [TestMethod]
-    public void Test08_10_000_000() => CreateAndCheckFile(10_000_000);
+    public void Test08_1_000_000() => CreateAndCheckFile(1_000_000);
 
     [TestMethod]
-    public void Test09_100_000_000() => CreateAndCheckFile(100_000_000);
+    public void Test09_10_000_000() => CreateAndCheckFile(10_000_000);
 
     [TestMethod]
-    public void Test10_1_000_000_000() => CreateAndCheckFile(1_000_000_000);
+    public void Test10_100_000_000() => CreateAndCheckFile(100_000_000);
+
+    [TestMethod]
+    public void Test11_1_000_000_000() => CreateAndCheckFile(1_000_000_000);
 
     private static void CheckSizeIsTooLittle(FileGenerator generator, byte size)
     {
@@ -102,7 +105,7 @@ public class FileGeneratorTests
 
     private FileGeneratorTestsHelper? _helper;
 
-    private const byte MinLineLength = 6;
-    private const byte MaxLineLength = 49;
-    private const byte MinFileSize = 12;
+    private const byte MinLineLength = 4;
+    private const byte MaxLineLength = 47;
+    private const byte MinFileSize = 10;
 }
